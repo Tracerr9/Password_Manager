@@ -1,8 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.Logging;
+using Password_Manager.Services;
 using Password_Manager.Services.Crypto;
 using Password_Manager.Services.Data;
 using Password_Manager.Services.Session;
-using static Password_Manager.Services.Session.SessionService;
 
 namespace Password_Manager
 {
@@ -21,6 +22,12 @@ namespace Password_Manager
             builder.Services.AddSingleton<CryptoService>();
             builder.Services.AddSingleton<VaultRepository>();
             builder.Services.AddSingleton<SessionService>();
+            builder.Services.AddSingleton<VaultService>();
+
+            builder.Services.AddAuthorizationCore();
+            builder.Services.AddSingleton<VaultAuthStateProvider>();
+            builder.Services.AddSingleton<AuthenticationStateProvider>(sp =>
+                sp.GetRequiredService<VaultAuthStateProvider>());
 
             builder.Services.AddMauiBlazorWebView();
 

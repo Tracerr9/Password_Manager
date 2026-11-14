@@ -97,7 +97,7 @@ namespace Password_Manager.Services.Data
                            .FirstOrDefaultAsync();
         }
 
-        public async Task SaveEntryAsync(VaultEntry entry)
+        public async Task SaveEntryAsync(EntryModel entry)
         {
             var db = await GetDatabaseAsync();
             entry.UpdatedAtUtc = DateTime.UtcNow;
