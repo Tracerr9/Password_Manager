@@ -1,0 +1,99 @@
+﻿@page "/unlock"
+@inject VaultService VaultService
+@inject SessionService Session
+@inject NavigationManager Nav
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <h1>Vault Terkunci</h1>
+        <p class="subtitle">Masukkan Master Password.</p>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert-error">@_errorMessage</div>
+        }
+
+        <EditForm Model="this" OnValidSubmit="HandleUnlockAsync">
+            <div class="form-group">
+                <label for="unlock-pw">Master Password</label>
+                <input id="unlock-pw"
+                       type="password"
+                       class="input-control"
+                       @bind="_masterPassword"
+                       autocomplete="off"
+                       spellcheck="false"
+                       disabled="@_isBusy" />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@_isBusy">
+                @(_isBusy ? "Memverifikasi..." : "Buka Vault")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private string _masterPassword = string.Empty;
+    private string? _errorMessage;
+    private bool _isBusy;
+    private int _failedAttempts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await VaultService.IsVaultInitializedAsync())
+        {
+            Nav.NavigateTo("/setup", replace: true);
+            return;
+        }
+
+        if (Session.IsUnlocked)
+        {
+            Nav.NavigateTo("/", replace: true);
+        }
+    }
+
+    private async Task HandleUnlockAsync()
+    {
+        _errorMessage = null;
+
+        if (string.IsNullOrEmpty(_masterPassword))
+        {
+            _errorMessage = "Masukkan Master Password terlebih dahulu.";
+            return;
+        }
+
+        _isBusy = true;
+        string passwordSnapshot = _masterPassword;
+        _masterPassword = string.Empty;
+
+        try
+        {
+            bool unlocked = await Task.Run(() => VaultService.TryUnlockAsync(passwordSnapshot));
+
+            if (unlocked)
+            {
+                _failedAttempts = 0;
+                Nav.NavigateTo("/", replace: true);
+                return;
+            }
+
+            _failedAttempts++;
+            int penaltySeconds = _failedAttempts >= 3 ? Math.Min(_failedAttempts * 2, 30) : 0;
+
+            if (penaltySeconds > 0)
+            {
+                _errorMessage = $"Master password salah. Tunggu {penaltySeconds} detik sebelum mencoba lagi.";
+                await Task.Delay(TimeSpan.FromSeconds(penaltySeconds));
+            }
+            else
+            {
+                _errorMessage = "Master password salah.";
+            }
+        }
+        finally
+        {
+            passwordSnapshot = string.Empty;
+            _isBusy = false;
+        }
+    }
+}

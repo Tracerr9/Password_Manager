@@ -4,7 +4,7 @@ using Password_Manager.Services.Data;
 using Password_Manager.Services.Session;
 using System.Security.Cryptography;
 using System.Text.Json;
-using static Password_Manager.Services.Session.SessionService;
+
 namespace Password_Manager.Services
 {
     /// <summary>
@@ -41,12 +41,12 @@ namespace Password_Manager.Services
 
         private readonly CryptoService _crypto;
         private readonly VaultRepository _repository;
-        private readonly VaultSessionService _session;
+        private readonly SessionService _session;
 
         public VaultService(
             CryptoService crypto,
             VaultRepository repository,
-            VaultSessionService session)
+            SessionService session)
         {
             _crypto = crypto;
             _repository = repository;

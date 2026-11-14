@@ -1,0 +1,390 @@
+﻿@page "/"
+@attribute [Authorize]
+@implements IDisposable
+@using System.Security.Cryptography
+@inject VaultService VaultService
+@inject SecureClipboardService SecureClipboard
+
+@if (!string.IsNullOrEmpty(_statusBanner))
+{
+    <div class="toast-banner">@_statusBanner</div>
+}
+
+<div class="vault-layout">
+    <!-- PANEL KIRI: PENCARIAN & DAFTAR ENTRI -->
+    <aside class="vault-sidebar">
+        <div class="sidebar-toolbar">
+            <input type="search"
+                   class="input-control"
+                   placeholder="Cari judul, username, URL..."
+                   value="@_searchTerm"
+                   @oninput="OnSearchInputAsync"
+                   autocomplete="off"
+                   spellcheck="false" />
+            <button type="button" class="btn btn-primary" @onclick="StartCreateNew">
+                + Baru
+            </button>
+        </div>
+
+        <div class="entry-list">
+            @if (_entries.Count == 0)
+            {
+                <div class="empty-state">Belum ada entri tersimpan.</div>
+            }
+            else
+            {
+                @foreach (var item in _entries)
+                {
+                    bool isSelected = _selectedEntry?.Id == item.Id && !_isEditing;
+                    <div class="entry-item @(isSelected ? "selected" : "")"
+                         @onclick="() => SelectEntry(item)">
+                        <div class="entry-title">@item.Title</div>
+                        <div class="entry-sub">@item.Username</div>
+                    </div>
+                }
+            }
+        </div>
+    </aside>
+
+    <!-- PANEL KANAN: DETAIL ATAU FORM TAMBAH/EDIT -->
+    <section class="vault-detail">
+        @if (_isEditing)
+        {
+            <h2>@(_editId is null ? "Tambah Akun Baru" : "Edit Akun")</h2>
+
+            @if (!string.IsNullOrEmpty(_formError))
+            {
+                <div class="alert-error">@_formError</div>
+            }
+
+            <div class="form-group">
+                <label>Judul / Layanan *</label>
+                <input type="text" class="input-control" @bind="_editTitle"
+                       placeholder="Contoh: GitHub, Gmail" autocomplete="off" spellcheck="false" />
+            </div>
+
+            <div class="form-group">
+                <label>Username / Email *</label>
+                <input type="text" class="input-control" @bind="_editUsername"
+                       autocomplete="off" spellcheck="false" />
+            </div>
+
+            <div class="form-group">
+                <label>URL (Opsional)</label>
+                <input type="text" class="input-control" @bind="_editUrl"
+                       autocomplete="off" spellcheck="false" />
+            </div>
+
+            <div class="form-group">
+                <label>Password *</label>
+                <div class="input-inline">
+                    <input type="@(_showFormPassword ? "text" : "password")"
+                           class="input-control mono"
+                           @bind="_editPassword"
+                           autocomplete="off"
+                           spellcheck="false" />
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="() => _showFormPassword = !_showFormPassword">
+                        @(_showFormPassword ? "Tutup" : "Lihat")
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="GenerateStrongPassword">
+                        Generate
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Catatan Rahasia (Opsional)</label>
+                <textarea class="input-control" rows="3" @bind="_editNotes"
+                          autocomplete="off" spellcheck="false"></textarea>
+            </div>
+
+            <div class="action-row">
+                <button type="button" class="btn btn-primary" @onclick="SaveEntryAsync">Simpan</button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Batal</button>
+            </div>
+        }
+        else if (_selectedEntry is not null)
+        {
+            <div class="detail-header">
+                <div>
+                    <h2>@_selectedEntry.Title</h2>
+                    <span class="meta-date">Diperbarui: @_selectedEntry.UpdatedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>
+                </div>
+                <div class="action-row">
+                    <button type="button" class="btn btn-secondary" @onclick="StartEditSelectedAsync">Edit</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteSelectedAsync">Hapus</button>
+                </div>
+            </div>
+
+            <div class="detail-field">
+                <span class="field-label">Username / Email</span>
+                <div class="field-value-row">
+                    <span class="mono">@_selectedEntry.Username</span>
+                    <button type="button" class="btn btn-secondary btn-sm"
+                            @onclick="() => CopyPlainAsync(_selectedEntry.Username, false)">
+                        Salin
+                    </button>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_selectedEntry.Url))
+            {
+                <div class="detail-field">
+                    <span class="field-label">URL</span>
+                    <div class="field-value-row">
+                        <span class="mono">@_selectedEntry.Url</span>
+                        <button type="button" class="btn btn-secondary btn-sm"
+                                @onclick="() => CopyPlainAsync(_selectedEntry.Url!, false)">
+                            Salin
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <div class="detail-field">
+                <span class="field-label">Password</span>
+                <div class="field-value-row">
+                    <span class="mono secret-text">
+                        @(_revealedSecret is not null ? _revealedSecret.Password : "••••••••••••••••")
+                    </span>
+                    <div class="action-row">
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="ToggleRevealSecretAsync">
+                            @(_revealedSecret is not null ? "Sembunyikan" : "Lihat")
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="CopyPasswordOnDemandAsync">
+                            Salin Password
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @if (_revealedSecret is not null && !string.IsNullOrWhiteSpace(_revealedSecret.Notes))
+            {
+                <div class="detail-field">
+                    <span class="field-label">Catatan</span>
+                    <pre class="notes-box">@_revealedSecret.Notes</pre>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="empty-detail">
+                Pilih akun di sebelah kiri untuk melihat detail, atau klik <strong>+ Baru</strong> untuk menambahkan kredensial.
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<VaultEntrySummary> _entries = [];
+    private string _searchTerm = string.Empty;
+    private VaultEntrySummary? _selectedEntry;
+    private EntrySecret? _revealedSecret;
+    private string? _statusBanner;
+
+    // Form state
+    private bool _isEditing;
+    private bool _showFormPassword;
+    private string? _editId;
+    private string _editTitle = string.Empty;
+    private string _editUsername = string.Empty;
+    private string? _editUrl;
+    private string _editPassword = string.Empty;
+    private string? _editNotes;
+    private string? _formError;
+
+    private CancellationTokenSource? _revealCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadEntriesAsync();
+    }
+
+    private async Task ReloadEntriesAsync()
+    {
+        _entries = await VaultService.GetAllSummariesAsync(_searchTerm);
+    }
+
+    private async Task OnSearchInputAsync(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? string.Empty;
+        await ReloadEntriesAsync();
+    }
+
+    private void SelectEntry(VaultEntrySummary item)
+    {
+        ClearRevealedSecret();
+        ClearFormFields();
+        _isEditing = false;
+        _selectedEntry = item;
+    }
+
+    private async Task ToggleRevealSecretAsync()
+    {
+        if (_selectedEntry is null) return;
+
+        if (_revealedSecret is not null)
+        {
+            ClearRevealedSecret();
+            return;
+        }
+
+        _revealedSecret = await VaultService.GetEntrySecretAsync(_selectedEntry.Id);
+
+        // Otomatis sembunyikan kembali setelah 15 detik
+        _revealCts?.Cancel();
+        _revealCts?.Dispose();
+        _revealCts = new CancellationTokenSource();
+        var token = _revealCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(15), token);
+                await InvokeAsync(() =>
+                {
+                    ClearRevealedSecret();
+                    StateHasChanged();
+                });
+            }
+            catch (TaskCanceledException) { }
+        }, token);
+    }
+
+    private async Task CopyPasswordOnDemandAsync()
+    {
+        if (_selectedEntry is null) return;
+
+        EntrySecret secret = _revealedSecret ?? await VaultService.GetEntrySecretAsync(_selectedEntry.Id);
+        await CopyPlainAsync(secret.Password, autoClearSensitive: true);
+    }
+
+    private async Task CopyPlainAsync(string text, bool autoClearSensitive)
+    {
+        if (!autoClearSensitive)
+        {
+            await SecureClipboard.CopyStandardAsync(text);
+            _statusBanner = "Tersalin ke clipboard.";
+            return;
+        }
+
+        _statusBanner = "Password tersalin (tersembunyi dari Win + V) dan akan dihapus dalam 15 detik.";
+
+        await SecureClipboard.CopySensitiveAsync(
+            secret: text,
+            clearAfter: TimeSpan.FromSeconds(15),
+            onCleared: () => InvokeAsync(() =>
+            {
+                _statusBanner = null;
+                StateHasChanged();
+            })
+        );
+    }
+
+    private void StartCreateNew()
+    {
+        ClearRevealedSecret();
+        ClearFormFields();
+        _isEditing = true;
+    }
+
+    private async Task StartEditSelectedAsync()
+    {
+        if (_selectedEntry is null) return;
+
+        EntrySecret secret = await VaultService.GetEntrySecretAsync(_selectedEntry.Id);
+        ClearRevealedSecret();
+
+        _editId = _selectedEntry.Id;
+        _editTitle = _selectedEntry.Title;
+        _editUsername = _selectedEntry.Username;
+        _editUrl = _selectedEntry.Url;
+        _editPassword = secret.Password;
+        _editNotes = secret.Notes;
+        _showFormPassword = false;
+        _formError = null;
+        _isEditing = true;
+    }
+
+    private async Task SaveEntryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_editTitle) ||
+            string.IsNullOrWhiteSpace(_editUsername) ||
+            string.IsNullOrEmpty(_editPassword))
+        {
+            _formError = "Judul, Username, dan Password wajib diisi.";
+            return;
+        }
+
+        var request = new SaveEntryRequest(
+            Id: _editId,
+            Title: _editTitle,
+            Username: _editUsername,
+            Url: _editUrl,
+            Password: _editPassword,
+            Notes: _editNotes
+        );
+
+        await VaultService.SaveEntryAsync(request);
+        ClearFormFields();
+        _isEditing = false;
+
+        await ReloadEntriesAsync();
+        if (request.Id is not null)
+        {
+            _selectedEntry = _entries.FirstOrDefault(e => e.Id == request.Id);
+        }
+    }
+
+    private void CancelEdit()
+    {
+        ClearFormFields();
+        _isEditing = false;
+    }
+
+    private async Task DeleteSelectedAsync()
+    {
+        if (_selectedEntry is null) return;
+
+        string idToDelete = _selectedEntry.Id;
+        ClearRevealedSecret();
+        _selectedEntry = null;
+
+        await VaultService.DeleteEntryAsync(idToDelete);
+        await ReloadEntriesAsync();
+    }
+
+    private void GenerateStrongPassword()
+    {
+        const string charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*_-+=";
+        _editPassword = RandomNumberGenerator.GetString(charset, 20);
+        _showFormPassword = true;
+    }
+
+    private void ClearRevealedSecret()
+    {
+        _revealCts?.Cancel();
+        _revealedSecret = null;
+    }
+
+    private void ClearFormFields()
+    {
+        _editId = null;
+        _editTitle = string.Empty;
+        _editUsername = string.Empty;
+        _editUrl = null;
+        _editPassword = string.Empty;
+        _editNotes = null;
+        _formError = null;
+        _showFormPassword = false;
+    }
+
+    public void Dispose()
+    {
+        ClearRevealedSecret();
+        ClearFormFields();
+        _revealCts?.Dispose();
+    }
+}

@@ -1,0 +1,97 @@
+﻿@page "/setup"
+@inject VaultService VaultService
+@inject NavigationManager Nav
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <h1>Buat Master Password</h1>
+        <p class="subtitle">
+            Kunci ini tidak pernah disimpan. Jika lupa, seluruh isi vault tidak dapat dipulihkan.
+        </p>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert-error">@_errorMessage</div>
+        }
+
+        <EditForm Model="this" OnValidSubmit="HandleSetupAsync">
+            <div class="form-group">
+                <label for="new-pw">Master Password (minimal 10 karakter)</label>
+                <input id="new-pw"
+                       type="password"
+                       class="input-control"
+                       @bind="_masterPassword"
+                       autocomplete="off"
+                       spellcheck="false"
+                       disabled="@_isBusy" />
+            </div>
+
+            <div class="form-group">
+                <label for="confirm-pw">Konfirmasi Master Password</label>
+                <input id="confirm-pw"
+                       type="password"
+                       class="input-control"
+                       @bind="_confirmPassword"
+                       autocomplete="off"
+                       spellcheck="false"
+                       disabled="@_isBusy" />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@_isBusy">
+                @(_isBusy ? "Menurunkan Kunci..." : "Buat Vault")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private string _masterPassword = string.Empty;
+    private string _confirmPassword = string.Empty;
+    private string? _errorMessage;
+    private bool _isBusy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await VaultService.IsVaultInitializedAsync())
+        {
+            Nav.NavigateTo("/unlock", replace: true);
+        }
+    }
+
+    private async Task HandleSetupAsync()
+    {
+        _errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(_masterPassword) || _masterPassword.Length < 10)
+        {
+            _errorMessage = "Master password minimal 10 karakter.";
+            return;
+        }
+
+        if (_masterPassword != _confirmPassword)
+        {
+            _errorMessage = "Konfirmasi password tidak cocok.";
+            return;
+        }
+
+        _isBusy = true;
+        string passwordSnapshot = _masterPassword;
+        _masterPassword = string.Empty;
+        _confirmPassword = string.Empty;
+
+        try
+        {
+            await Task.Run(() => VaultService.SetupVaultAsync(passwordSnapshot));
+            Nav.NavigateTo("/", replace: true);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Gagal membuat vault: {ex.Message}";
+        }
+        finally
+        {
+            passwordSnapshot = string.Empty;
+            _isBusy = false;
+        }
+    }
+}

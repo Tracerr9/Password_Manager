@@ -1,32 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Password_Manager</title>
-    <base href="/" />
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="Password_Manager.styles.css" />
-    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+          content="default-src 'self' https://0.0.0.1 data: blob:; connect-src 'self' https://0.0.0.1; img-src 'self' https://0.0.0.1 data:; style-src 'self' https://0.0.0.1 'unsafe-inline'; script-src 'self' https://0.0.0.1 'unsafe-inline' 'unsafe-eval';" />
+    <title>LocalVault</title>
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="PasswordManager.styles.css" />
 </head>
-
 <body>
-
-    <div class="status-bar-safe-area"></div>
-
-    <div id="app">Loading...</div>
-
-    <div id="blazor-error-ui" data-nosnippet>
-        An unhandled error has occurred.
-        <a href="." class="reload">Reload</a>
-        <span class="dismiss">🗙</span>
-    </div>
-
+    <div id="app">Memuat vault...</div>
     <script src="_framework/blazor.webview.js" autostart="false"></script>
-
 </body>
-
 </html>

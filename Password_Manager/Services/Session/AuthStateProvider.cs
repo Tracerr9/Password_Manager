@@ -1,14 +1,14 @@
 ﻿using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
-using static Password_Manager.Services.Session.SessionService;
+using Password_Manager.Services.Session;
 
 namespace Password_Manager.Services.Session
 {
     public sealed class VaultAuthStateProvider : AuthenticationStateProvider, IDisposable
     {
-        private readonly VaultSessionService _session;
+        private readonly SessionService _session;
 
-        public VaultAuthStateProvider(VaultSessionService session)
+        public VaultAuthStateProvider(SessionService session)
         {
             _session = session;
             _session.SessionStateChanged += OnSessionStateChanged;

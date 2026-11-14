@@ -40,11 +40,12 @@ namespace Password_Manager.Services.Data
 
                 var connection = new SQLiteAsyncConnection(_databasePath, Flags);
 
-                await connection.ExecuteAsync("PRAGMA secure_delete = ON;");
+                int secureDelete = await connection.ExecuteScalarAsync<int>("PRAGMA secure_delete = ON;");
+                string journalMode = await connection.ExecuteScalarAsync<string>("PRAGMA journal_mode = DELETE;");
+                await connection.ExecuteScalarAsync<int>("PRAGMA synchronous = FULL;");
 
-                await connection.ExecuteScalarAsync<string>("PRAGMA journal_mode = WAL;");
-
-                await connection.ExecuteAsync("PRAGMA synchronous = FULL;");
+                if (secureDelete != 1)
+                    throw new InvalidOperationException("SQLite gagal mengaktifkan PRAGMA secure_delete.");
 
                 await connection.CreateTableAsync<MetadataModel>();
                 await connection.CreateTableAsync<EntryModel>();
