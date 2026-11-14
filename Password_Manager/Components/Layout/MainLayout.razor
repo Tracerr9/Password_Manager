@@ -1,17 +1,43 @@
 ﻿@inherits LayoutComponentBase
+@inject SessionService Session
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div class="app-shell"
+     @onmousemove="OnUserInteraction"
+     @onkeydown="OnUserInteraction"
+     @onclick="OnUserInteraction">
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+    <header class="topbar">
+        <div class="brand">LocalVault</div>
 
-        <article class="content px-4">
-            @Body
-        </article>
+        <AuthorizeView>
+            <Authorized>
+                <button type="button" class="btn-lock" @onclick="LockVault">
+                    Lock Vault
+                </button>
+            </Authorized>
+        </AuthorizeView>
+    </header>
+
+    <main class="main-container">
+        @Body
     </main>
 </div>
+
+@code {
+    private DateTime _lastActivityPing = DateTime.MinValue;
+
+    private void OnUserInteraction()
+    {
+        var now = DateTime.UtcNow;
+        if ((now - _lastActivityPing).TotalSeconds >= 1)
+        {
+            _lastActivityPing = now;
+            Session.NotifyUserActivity();
+        }
+    }
+
+    private void LockVault()
+    {
+        Session.Lock();
+    }
+}

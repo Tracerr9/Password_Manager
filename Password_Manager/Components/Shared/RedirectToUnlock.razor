@@ -1,0 +1,10 @@
+﻿@inject VaultService VaultService
+@inject NavigationManager Nav
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        bool isInitialized = await VaultService.IsVaultInitializedAsync();
+        Nav.NavigateTo(isInitialized ? "/unlock" : "/setup", replace: true);
+    }
+}
