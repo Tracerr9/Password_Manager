@@ -1,4 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
+using Password_Manager.Services.Crypto;
+using Password_Manager.Services.Data;
+using Password_Manager.Services.Session;
+using static Password_Manager.Services.Session.SessionService;
 
 namespace Password_Manager
 {
@@ -13,6 +17,10 @@ namespace Password_Manager
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 });
+
+            builder.Services.AddSingleton<CryptoService>();
+            builder.Services.AddSingleton<VaultRepository>();
+            builder.Services.AddSingleton<SessionService>();
 
             builder.Services.AddMauiBlazorWebView();
 
